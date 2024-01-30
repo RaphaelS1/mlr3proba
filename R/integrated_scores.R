@@ -73,7 +73,7 @@ weighted_survival_score = function(loss, truth, distribution, times, t_max, p_ma
   return(score)
 }
 
-integrated_score = function(score, integrated, method = NULL) {
+integrated_score = function(score, integrated, method = NULL, meas) {
   if (ncol(score) == 1) {
     integrated = FALSE
   }
@@ -84,6 +84,9 @@ integrated_score = function(score, integrated, method = NULL) {
     } else if (method == 2) {
       times = as.numeric(colnames(score))
       lt = ncol(score)
+      meas$scores = apply(score, 1,
+        function(.x) (diff(times) %*% (.x[1:(lt - 1)] + .x[2:lt])) / (2 * (max(times) - min(times)))
+        )
       score = as.numeric(colMeans(score, na.rm = TRUE))
       return((diff(times) %*% (score[1:(lt - 1)] + score[2:lt])) / (2 * (max(times) - min(times))))
     }

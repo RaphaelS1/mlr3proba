@@ -81,7 +81,9 @@ MeasureSurvGraf = R6::R6Class("MeasureSurvGraf",
         label = "Integrated Graf Score",
         man = "mlr3proba::mlr_measures_surv.graf",
       )
-    }
+    },
+
+    scores = list()
   ),
 
   private = list(
@@ -120,7 +122,7 @@ MeasureSurvGraf = R6::R6Class("MeasureSurvGraf",
       if (ps$se) {
         integrated_se(score, ps$integrated)
       } else {
-        integrated_score(score, ps$integrated, ps$method)
+        integrated_score(score, ps$integrated, ps$method, self)
       }
     }
   )
