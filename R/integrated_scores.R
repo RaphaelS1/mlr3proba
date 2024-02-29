@@ -20,7 +20,7 @@ weighted_survival_score = function(loss, truth, distribution, times, t_max, p_ma
     } else if (!is.null(p_max)) {
       s = survival::survfit(truth ~ 1)
       t_max = s$time[which(1 - s$n.risk / s$n > p_max)[1]]
-      unique_times  = unique_times[unique_times <= t_max]
+      unique_times = unique_times[unique_times <= t_max]
     }
   } else {
     unique_times = .c_get_unique_times(truth[, "time"], times)
@@ -74,24 +74,35 @@ weighted_survival_score = function(loss, truth, distribution, times, t_max, p_ma
 }
 
 integrated_score = function(score, integrated, method = NULL, meas) {
+  # score is a matrix of BS(i,t) scores
+  # rows => observations, cols => time points
   if (ncol(score) == 1) {
     integrated = FALSE
   }
 
   if (integrated) {
+    # summary score (integrated across all time points)
     if (method == 1) {
-      return(mean(as.numeric(score), na.rm = TRUE))
+      score = as.numeric(score)
+      return(mean(score[is.finite(score)], na.rm = TRUE)) # remove NAs and Infs
     } else if (method == 2) {
       times = as.numeric(colnames(score))
       lt = ncol(score)
-      meas$scores = apply(score, 1,
-        function(.x) (diff(times) %*% (.x[1:(lt - 1)] + .x[2:lt])) / (2 * (max(times) - min(times)))
-        )
-      score = as.numeric(colMeans(score, na.rm = TRUE))
+
+      # store the per-observation IBS (integrated across time points)
+      meas$scores = apply(score, 1, function(.x) {
+        # remove potential Infs
+        .x = .x[is.finite(.x)]
+        # new time points
+        times2 = as.numeric(names(.x))
+        lt2 = length(times)
+        (diff(times2) %*% (.x[1:(lt2 - 1)] + .x[2:lt2])) / (2 * (max(times2) - min(times2)))
+      })
+      score = col_sums(score) # score(t)
       return((diff(times) %*% (score[1:(lt - 1)] + score[2:lt])) / (2 * (max(times) - min(times))))
     }
   } else {
-    return(colMeans(score, na.rm = TRUE))
+    return(col_sums(score)) # score(t)
   }
 }
 
@@ -101,4 +112,12 @@ integrated_se = function(score, integrated) {
   } else {
     apply(score, 2, function(x) stats::sd(x) / sqrt(nrow(score)))
   }
+}
+
+# like colMeans(), but removing Infs, NAs and NaNs
+col_sums = function(mat) {
+  apply(mat, 2, function(x) {
+    x = x[is.finite(x)]
+    mean(x, na.rm = TRUE)
+  })
 }
