@@ -95,7 +95,7 @@ integrated_score = function(score, integrated, method = NULL, meas) {
         .x = .x[is.finite(.x)]
         # new time points
         times2 = as.numeric(names(.x))
-        lt2 = length(times)
+        lt2 = length(times2)
         (diff(times2) %*% (.x[1:(lt2 - 1)] + .x[2:lt2])) / (2 * (max(times2) - min(times2)))
       })
       score = col_sums(score) # score(t)
