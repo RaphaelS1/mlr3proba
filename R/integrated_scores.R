@@ -117,7 +117,8 @@ integrated_se = function(score, integrated) {
 # like colMeans(), but removing Infs, NAs and NaNs
 col_sums = function(mat) {
   apply(mat, 2, function(x) {
-    x = x[is.finite(x)]
+    # FIXME
+    x = pmin(x, 1e2)
     mean(x, na.rm = TRUE)
   })
 }
