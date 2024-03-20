@@ -124,12 +124,21 @@ NumericMatrix c_weight_survival_score(NumericMatrix score, NumericMatrix truth,
             if ((times[i] < cens_times[l]) && l == 0) {
               k = 1;
               break;
-            } else if(times[i] >= cens_times[l] && (l == cens_times.length()-1 || times[i] < cens_times[l+1])) {
-              k = cens_surv[l];
-              // k == 0 only if last obsv censored, therefore mat is set to 0 anyway
-              if(k == 0) {
+            } else if (times[i] >= cens_times[l] && (l == cens_times.length()-1 || times[i] < cens_times[l+1])) {
+              if (cens_surv[l] > 0) {
+                k = cens_surv[l];
+              } else if (cens_surv[l-1] > 0) {
+                // in this case the observation has most probably experienced the
+                // event at the last time point and the censoring survival is 0.
+                // Due to `survfit` fixing the improper KM censoring distribution
+                // by adding a zero probability at the last time point, we might
+                // as well try to use the survival on the time point preceding
+                // the last one (ie at `l-1` index), otherwise we simply take `eps`
+                k = cens_surv[l-1];
+              } else {
                 k = eps;
               }
+
               break;
             }
           }
