@@ -125,17 +125,9 @@ NumericMatrix c_weight_survival_score(NumericMatrix score, NumericMatrix truth,
               k = 1;
               break;
             } else if (times[i] >= cens_times[l] && (l == cens_times.length()-1 || times[i] < cens_times[l+1])) {
-              if (cens_surv[l] > 0) {
-                k = cens_surv[l];
-              } else if (cens_surv[l-1] > 0) {
-                // in this case the observation has most probably experienced the
-                // event at the last time point and the censoring survival is 0.
-                // Due to `survfit` fixing the improper KM censoring distribution
-                // by adding a zero probability at the last time point, we might
-                // as well try to use the survival on the time point preceding
-                // the last one (ie at `l-1` index), otherwise we simply take `eps`
-                k = eps;
-              } else {
+              k = cens_surv[l];
+              // k == 0 only if last observation has experienced the event
+              if (k == 0) {
                 k = eps;
               }
 

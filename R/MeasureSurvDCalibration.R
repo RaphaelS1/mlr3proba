@@ -125,7 +125,7 @@ MeasureSurvDCalibration = R6Class("MeasureSurvDCalibration",
           bj[ji] = bj[ji] + (1 - (ji - 1) / (B * si[[i]]))
         }
       }
-browser()
+
       if (ps$chisq) {
         return(stats::chisq.test(bj)$p.value)
       } else {
