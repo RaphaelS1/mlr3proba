@@ -15,41 +15,49 @@ weighted_survival_score = function(loss, truth, distribution, times, t_max, p_ma
 
   if (is.null(times) || !length(times)) {
     unique_times = unique(sort(truth[, "time"]))
-    if (!is.null(t_max)) {
-      unique_times  = unique_times[unique_times <= t_max]
-    } else if (!is.null(p_max)) {
+    if (!is.null(p_max)) {
       s = survival::survfit(truth ~ 1)
       t_max = s$time[which(1 - s$n.risk / s$n > p_max)[1]]
-      unique_times = unique_times[unique_times <= t_max]
+    } else if (is.null(t_max)) {
+      t_max = max(unique_times)
     }
   } else {
     unique_times = .c_get_unique_times(truth[, "time"], times)
+    t_max = max(unique_times)
   }
 
-  # get the cdf matrix (rows => times, cols => obs)
+  unique_times = unique_times[unique_times <= t_max]
+  true_times = truth[, "time"]
+  true_status = truth[, "status"][true_times <= t_max]
+
   if (inherits(distribution, "Distribution")) {
     cdf = as.matrix(distribution$cdf(unique_times))
   }
   else if (inherits(distribution, "array")) {
+    # get the cdf matrix (cols => times, rows => obs)
     if (length(dim(distribution)) == 3) {
       # survival 3d array, extract median
       surv_mat = .ext_surv_mat(arr = distribution, which.curve = 0.5)
     } else { # survival 2d array
       surv_mat = distribution
     }
+    surv_mat = surv_mat[, as.numeric(colnames(surv_mat)) <= t_max]
     mtc = findInterval(unique_times, as.numeric(colnames(surv_mat)))
-    cdf = 1 - t(surv_mat[, mtc])
+    cdf = 1 - surv_mat[, mtc]
     if (any(mtc == 0)) {
-      cdf = rbind(matrix(0, sum(mtc == 0), ncol(cdf)), cdf)
+      cdf = cbind(matrix(0, nrow(cdf), sum(mtc == 0)), cdf)
     }
-    rownames(cdf) = unique_times
+    cdf = cdf[true_times <= t_max, ]
+    colnames(cdf) = unique_times
+    cdf = t(cdf)
   }
 
-  true_times = truth[, "time"]
+  true_times = true_times[true_times <= t_max]
 
   assert_numeric(true_times, any.missing = FALSE)
   assert_numeric(unique_times, any.missing = FALSE)
-  assert_matrix(cdf, nrows = length(unique_times), ncols = length(true_times), any.missing = FALSE)
+  assert_matrix(cdf, nrows = length(unique_times), ncols = length(true_times),
+   any.missing = FALSE)
 
   ## Note that whilst we calculate the score for censored here, they are then
   ##  corrected in the weighting function
@@ -62,9 +70,12 @@ weighted_survival_score = function(loss, truth, distribution, times, t_max, p_ma
   }
 
   if (is.null(train)) {
-    cens = survival::survfit(Surv(truth[, "time"], 1 - truth[, "status"]) ~ 1)
+    cens = survival::survfit(Surv(true_times, 1 - true_status) ~ 1)
   } else {
-    cens = survival::survfit(Surv(train[, "time"], 1 - train[, "status"]) ~ 1)
+    train_times = train[, "time"]
+    train_status = 1 - (train[, "status"][train_times <= t_max])
+    train_times = train_times[train_times <= t_max]
+    cens = survival::survfit(Surv(train_times, train_status) ~ 1)
   }
 
   score = .c_weight_survival_score(score, truth, unique_times, matrix(c(cens$time, cens$surv), ncol = 2), proper, eps)

@@ -1,20 +1,19 @@
-t = tgen("simsurv")$generate(300)
-s = partition(t)
-p = lrn("surv.coxph")$train(t, s$train)$predict(t, s$test)
-m_proper = msr("surv.graf", proper = TRUE)
-m_improper = msr("surv.graf", proper = FALSE)
-p$score(m_proper)
-p$score(m_improper)
+dd = readRDS("~/Downloads/data.rds")
+task = dd$task
+train_rows = dd$train_rows
+test_rows = dd$test_rows
 
-censored = t$truth(s$test)[, 2] == 0
+devtools::load_all()
 
-mean((m_proper$scores - m_improper$scores)^2)
-mean((m_proper$scores[censored] - m_improper$scores[censored])^2)
-mean((m_proper$scores[!censored] - m_improper$scores[!censored])^2)
+km = lrn("surv.kaplan") #same with cox
+km$train(task, row_ids = train_rows)
+pred_kaplan = km$predict(task, row_ids = test_rows)
 
+graf_improper = msr("surv.graf", proper = FALSE, id = "graf.improper", p_max = 0.8)
+graf_proper   = msr("surv.graf", proper = TRUE,  id = "graf.proper", p_max = 0.8)
 
+km_proper = pred_kaplan$score(graf_proper, task = task, train_set = train_rows)
+km_improper = pred_kaplan$score(graf_improper, task = task, train_set = train_rows)
 
-plot(m_proper$scores, m_improper$scores)
-abline(a = 0, b = 1)
-
-all(m_proper$scores <= m_improper$scores)
+graf_proper$scores
+graf_improper$scores

@@ -68,10 +68,10 @@ NumericMatrix c_score_graf_schmid(NumericVector truth, NumericVector unique_time
   NumericMatrix igs(nr_obs, nc_times);
 
   for (int i = 0; i < nr_obs; i++) {
-      for (int j = 0; j < nc_times; j++) {
-          double tmp = (truth[i] > unique_times[j]) ? cdf(j, i) : 1 - cdf(j, i); // FIXME: different from above
-          igs(i, j) = std::pow(tmp, power);
-      }
+    for (int j = 0; j < nc_times; j++) {
+      double tmp = (truth[i] > unique_times[j]) ? cdf(j, i) : 1 - cdf(j, i);
+      igs(i, j) = std::pow(tmp, power);
+    }
   }
 
   return igs;
@@ -134,7 +134,7 @@ NumericMatrix c_weight_survival_score(NumericMatrix score, NumericMatrix truth,
                 // by adding a zero probability at the last time point, we might
                 // as well try to use the survival on the time point preceding
                 // the last one (ie at `l-1` index), otherwise we simply take `eps`
-                k = cens_surv[l-1];
+                k = eps;
               } else {
                 k = eps;
               }
