@@ -10,9 +10,14 @@ score_graf_schmid = function(true_times, unique_times, cdf, power = 2) {
 
 
 weighted_survival_score = function(loss, truth, distribution, times, t_max, p_max, proper, train = NULL, eps, ...) {
-
   assert_surv(truth)
 
+  # if `tmax_apply` = TRUE, the t_max cutoff will be applied to both train
+  # (if provided) and test data. For this at least one of `t_max` or `p_max`
+  # should be given
+  tmax_apply = !(is.null(t_max) && is.null(p_max))
+
+  # calculate `t_max` (time horizon)
   if (is.null(times) || !length(times)) {
     unique_times = unique(sort(truth[, "time"]))
     if (!is.null(p_max)) {
@@ -26,9 +31,12 @@ weighted_survival_score = function(loss, truth, distribution, times, t_max, p_ma
     t_max = max(unique_times)
   }
 
+  # subset `unique_times` in the test set up to `t_max`
   unique_times = unique_times[unique_times <= t_max]
-  true_times = truth[, "time"]
-  true_status = truth[, "status"][true_times <= t_max]
+
+  # keep all the test set time points for the censoring distr via KM if no train data
+  all_times  = truth[, "time"]
+  all_status = truth[, "status"]
 
   if (inherits(distribution, "Distribution")) {
     cdf = as.matrix(distribution$cdf(unique_times))
@@ -43,24 +51,27 @@ weighted_survival_score = function(loss, truth, distribution, times, t_max, p_ma
     }
     surv_mat = surv_mat[, as.numeric(colnames(surv_mat)) <= t_max]
     mtc = findInterval(unique_times, as.numeric(colnames(surv_mat)))
-    cdf = 1 - surv_mat[, mtc]
+    cdf = 1 - surv_mat[, mtc, drop = FALSE]
     if (any(mtc == 0)) {
       cdf = cbind(matrix(0, nrow(cdf), sum(mtc == 0)), cdf)
     }
-    cdf = cdf[true_times <= t_max, ]
+    # apply `t_max` cutoff to remove observations in the test predictions
+    cdf = cdf[all_times <= t_max, , drop = FALSE]
     colnames(cdf) = unique_times
     cdf = t(cdf)
   }
 
-  true_times = true_times[true_times <= t_max]
+  # apply `t_max` cutoff to the test set's (time, status)
+  true_times  = all_times[all_times <= t_max]
+  true_status = all_status[all_times <= t_max]
 
   assert_numeric(true_times, any.missing = FALSE)
   assert_numeric(unique_times, any.missing = FALSE)
   assert_matrix(cdf, nrows = length(unique_times), ncols = length(true_times),
    any.missing = FALSE)
 
-  ## Note that whilst we calculate the score for censored here, they are then
-  ##  corrected in the weighting function
+  # Note that whilst we calculate the score for censored here, they are then
+  # corrected in the weighting function
   if (loss == "graf") {
     score = score_graf_schmid(true_times, unique_times, cdf, power = 2)
   } else if (loss == "schmid") {
@@ -70,11 +81,19 @@ weighted_survival_score = function(loss, truth, distribution, times, t_max, p_ma
   }
 
   if (is.null(train)) {
-    cens = survival::survfit(Surv(true_times, 1 - true_status) ~ 1)
+    if (tmax_apply) { # use filtered (time, status) test data
+      cens = survival::survfit(Surv(true_times, 1 - true_status) ~ 1)
+    } else { # use all (time, status) information from the test set
+      cens = survival::survfit(Surv(all_times, 1 - all_status) ~ 1)
+    }
   } else {
-    train_times = train[, "time"]
-    train_status = 1 - (train[, "status"][train_times <= t_max])
-    train_times = train_times[train_times <= t_max]
+    train_times  = train[, "time"]
+    train_status = train[, "status"]
+    if (tmax_apply) { # apply t_max cutoff to filter train data
+      subset_lgl = train_times <= t_max
+      train_times = train_times[subset_lgl]
+      train_status = 1 - train_status[subset_lgl]
+    }
     cens = survival::survfit(Surv(train_times, train_status) ~ 1)
   }
 
