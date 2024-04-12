@@ -62,7 +62,7 @@ weighted_survival_score = function(loss, truth, distribution, times, t_max, p_ma
   }
 
   # apply `t_max` cutoff to the test set's (time, status)
-  true_times  = all_times[all_times <= t_max]
+  true_times  = all_times [all_times <= t_max]
   true_status = all_status[all_times <= t_max]
 
   assert_numeric(true_times, any.missing = FALSE)
@@ -90,11 +90,11 @@ weighted_survival_score = function(loss, truth, distribution, times, t_max, p_ma
     train_times  = train[, "time"]
     train_status = train[, "status"]
     if (tmax_apply) { # apply t_max cutoff to filter train data
-      subset_lgl = train_times <= t_max
-      train_times = train_times[subset_lgl]
-      train_status = 1 - train_status[subset_lgl]
+      subset_lgl   = train_times <= t_max
+      train_times  = train_times [subset_lgl]
+      train_status = train_status[subset_lgl]
     }
-    cens = survival::survfit(Surv(train_times, train_status) ~ 1)
+    cens = survival::survfit(Surv(train_times, 1 - train_status) ~ 1)
   }
 
   score = .c_weight_survival_score(score, truth, unique_times, matrix(c(cens$time, cens$surv), ncol = 2), proper, eps)
