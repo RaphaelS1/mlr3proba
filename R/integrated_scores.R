@@ -80,24 +80,23 @@ weighted_survival_score = function(loss, truth, distribution, times, t_max, p_ma
     score = score_intslogloss(true_times, unique_times, cdf, eps = eps)
   }
 
+  # use all (time, status) information from train or test set
   if (is.null(train)) {
-    if (tmax_apply) { # use filtered (time, status) test data
-      cens = survival::survfit(Surv(true_times, 1 - true_status) ~ 1)
-    } else { # use all (time, status) information from the test set
-      cens = survival::survfit(Surv(all_times, 1 - all_status) ~ 1)
-    }
+    cens = survival::survfit(Surv(all_times, 1 - all_status) ~ 1)
   } else {
     train_times  = train[, "time"]
     train_status = train[, "status"]
-    if (tmax_apply) { # apply t_max cutoff to filter train data
-      subset_lgl   = train_times <= t_max
-      train_times  = train_times [subset_lgl]
-      train_status = train_status[subset_lgl]
-    }
     cens = survival::survfit(Surv(train_times, 1 - train_status) ~ 1)
   }
+  # G(t): KM estimate of the censoring distr
+  cens = matrix(c(cens$time, cens$surv), ncol = 2)
 
-  score = .c_weight_survival_score(score, truth, unique_times, matrix(c(cens$time, cens$surv), ncol = 2), proper, eps)
+  # filter time points based on `t_max` cutoff
+  if (tmax_apply) {
+    cens = cens[cens[,1] <= t_max, , drop = FALSE]
+  }
+
+  score = .c_weight_survival_score(score, truth, unique_times, cens, proper, eps)
   colnames(score) = unique_times
 
   return(score)
